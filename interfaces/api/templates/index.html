@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aervise Demo</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Aervise</p>
+      <h1>Interaction Flow Demo</h1>
+      <p class="lede">Use the chat-style surface to run a request end to end, then inspect each stage below without leaving the page.</p>
+    </section>
+
+    <section class="chat-shell">
+      <div class="chat-panel">
+        <div class="panel-header">
+          <h2>Chat View</h2>
+          <p>The top view shows the operator input and the rendered system response together.</p>
+        </div>
+
+        <div class="chat-thread">
+          <article class="bubble bubble-user">
+            <p class="bubble-label">Input</p>
+            <p id="user-message-view">{{ default_message }}</p>
+          </article>
+
+          <article class="bubble bubble-assistant">
+            <p class="bubble-label">Rendered Output</p>
+            <div class="chat-meta">
+              <span id="trace-id-view" class="trace-chip">Trace pending</span>
+              <button id="copy-trace-button" class="ghost-button" type="button">Copy Trace</button>
+            </div>
+            <h3 id="assistant-headline">Awaiting run</h3>
+            <p id="assistant-message">Run the flow to see the stable rendered response here.</p>
+            <ul id="assistant-reasons" class="bullet-list">
+              <li>The structured engine output will be rendered into user-facing messaging here.</li>
+            </ul>
+            <ul id="assistant-adjustments" class="bullet-list bullet-muted"></ul>
+          </article>
+        </div>
+
+        <div class="composer">
+          <label class="field-label" for="message-input">User message</label>
+          <textarea id="message-input" spellcheck="false">{{ default_message }}</textarea>
+          <div class="location-grid">
+            <div>
+              <label class="field-label" for="lat-input">Latitude</label>
+              <input id="lat-input" type="number" step="any" value="{{ default_lat }}" />
+            </div>
+            <div>
+              <label class="field-label" for="lon-input">Longitude</label>
+              <input id="lon-input" type="number" step="any" value="{{ default_lon }}" />
+            </div>
+          </div>
+          <div class="actions">
+            <button id="run-button" type="button">Run Flow</button>
+            <span id="status-text">Idle</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="panel result-panel">
+        <div class="panel-header">
+          <h2>Stage 0 + 1</h2>
+          <p>Entry normalization and intent recognition.</p>
+        </div>
+        <pre id="stage01-view">Run the interaction flow to inspect Stage 0 and Stage 1.</pre>
+      </div>
+
+      <div class="panel result-panel">
+        <div class="panel-header">
+          <h2>Stage 2</h2>
+          <p>Normalized environment state from enrichment.</p>
+        </div>
+        <pre id="stage2-view">Run the interaction flow to inspect Stage 2.</pre>
+      </div>
+
+      <div class="panel result-panel">
+        <div class="panel-header">
+          <h2>Stage 3</h2>
+          <p>Canonical decision input passed into the deterministic core.</p>
+        </div>
+        <pre id="stage3-view">Run the interaction flow to inspect Stage 3.</pre>
+      </div>
+
+      <div class="panel result-panel">
+        <div class="panel-header">
+          <h2>Decision Core Output</h2>
+          <p>Structured deterministic output from Stage 4 and Stage 5 before rendering.</p>
+        </div>
+        <pre id="stage45-view">Run the interaction flow to inspect Stage 4 and Stage 5.</pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const runButton = document.getElementById("run-button");
+    const messageInput = document.getElementById("message-input");
+    const latInput = document.getElementById("lat-input");
+    const lonInput = document.getElementById("lon-input");
+    const statusText = document.getElementById("status-text");
+    const userMessageView = document.getElementById("user-message-view");
+    const assistantHeadline = document.getElementById("assistant-headline");
+    const assistantMessage = document.getElementById("assistant-message");
+    const assistantReasons = document.getElementById("assistant-reasons");
+    const assistantAdjustments = document.getElementById("assistant-adjustments");
+    const traceIdView = document.getElementById("trace-id-view");
+    const copyTraceButton = document.getElementById("copy-trace-button");
+    const stage01View = document.getElementById("stage01-view");
+    const stage2View = document.getElementById("stage2-view");
+    const stage3View = document.getElementById("stage3-view");
+    const stage45View = document.getElementById("stage45-view");
+    let currentTraceId = null;
+
+    function renderList(target, items, emptyText) {
+      target.innerHTML = "";
+      if (!items || items.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = emptyText;
+        target.appendChild(li);
+        return;
+      }
+
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        target.appendChild(li);
+      });
+    }
+
+    async function runDecisionEngine() {
+      const traceId = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : `trace-${Date.now()}`;
+      const payload = {
+        user_id: "demo-user",
+        message: messageInput.value,
+        location: {
+          lat: Number(latInput.value),
+          lon: Number(lonInput.value)
+        }
+      };
+      const requestHeaders = {
+        "Content-Type": "application/json",
+        "X-Trace-Id": traceId
+      };
+      currentTraceId = traceId;
+
+      statusText.textContent = `Running ${traceId.slice(0, 8)}...`;
+      traceIdView.textContent = `Trace ${traceId}`;
+      userMessageView.textContent = payload.message;
+      assistantHeadline.textContent = "Running";
+      assistantMessage.textContent = "Fetching stage outputs and rendering the response...";
+      renderList(assistantReasons, ["Waiting for the structured response."], "");
+      renderList(assistantAdjustments, [], "No adjustments yet.");
+      stage01View.textContent = "Executing request...";
+      stage2View.textContent = "Executing request...";
+      stage3View.textContent = "Executing request...";
+      stage45View.textContent = "Executing request...";
+
+      try {
+        const [previewResponse, enrichResponse, payloadResponse] = await Promise.all([
+          fetch("/interaction/preview", {
+            method: "POST",
+            headers: requestHeaders,
+            body: JSON.stringify(payload)
+          }),
+          fetch("/interaction/enrich", {
+            method: "POST",
+            headers: requestHeaders,
+            body: JSON.stringify(payload)
+          }),
+          fetch("/interaction/build-payload", {
+            method: "POST",
+            headers: requestHeaders,
+            body: JSON.stringify(payload)
+          })
+        ]);
+
+        const previewData = await previewResponse.json();
+        const enrichData = await enrichResponse.json();
+        const payloadData = await payloadResponse.json();
+
+        if (!previewResponse.ok || !enrichResponse.ok || !payloadResponse.ok) {
+          const merged = JSON.stringify(
+            {
+              preview: previewData,
+              enrichment: enrichData,
+              decision_input: payloadData
+            },
+            null,
+            2
+          );
+          statusText.textContent = `Failed ${traceId.slice(0, 8)}`;
+          assistantHeadline.textContent = "Request failed";
+          assistantMessage.textContent = "Inspect the stage output below for the returned error payload.";
+          renderList(assistantReasons, ["One or more backend stages returned an error."], "");
+          renderList(assistantAdjustments, [], "No adjustments available.");
+          stage01View.textContent = merged;
+          stage2View.textContent = merged;
+          stage3View.textContent = merged;
+          stage45View.textContent = merged;
+          return;
+        }
+
+        const renderedResponse = await fetch("/decision/evaluate-rendered", {
+          method: "POST",
+          headers: requestHeaders,
+          body: JSON.stringify(payloadData)
+        });
+        const renderedData = await renderedResponse.json();
+
+        if (!renderedResponse.ok) {
+          const rendered = JSON.stringify(
+            {
+              decision_input: payloadData,
+              rendered: renderedData
+            },
+            null,
+            2
+          );
+          statusText.textContent = `Failed ${traceId.slice(0, 8)}`;
+          assistantHeadline.textContent = "Render failed";
+          assistantMessage.textContent = "The structured decision built successfully, but rendering failed.";
+          renderList(assistantReasons, ["The render step returned an error payload."], "");
+          renderList(assistantAdjustments, [], "No adjustments available.");
+          stage01View.textContent = JSON.stringify(
+            {
+              entry_point: previewData.entry_point,
+              intent_recognition: previewData.intent_recognition
+            },
+            null,
+            2
+          );
+          stage2View.textContent = JSON.stringify(enrichData.environment_state, null, 2);
+          stage3View.textContent = JSON.stringify(payloadData, null, 2);
+          stage45View.textContent = rendered;
+          return;
+        }
+
+        statusText.textContent = `Completed ${traceId.slice(0, 8)}`;
+        assistantHeadline.textContent = renderedData.rendered.headline;
+        assistantMessage.textContent = renderedData.rendered.message;
+        renderList(assistantReasons, renderedData.rendered.reason_bullets, "No additional reasons.");
+        renderList(assistantAdjustments, renderedData.rendered.adjustment_bullets, "No adjustments suggested.");
+
+        stage01View.textContent = JSON.stringify(
+          {
+            entry_point: previewData.entry_point,
+            intent_recognition: previewData.intent_recognition
+          },
+          null,
+          2
+        );
+        stage2View.textContent = JSON.stringify(enrichData.environment_state, null, 2);
+        stage3View.textContent = JSON.stringify(payloadData, null, 2);
+        stage45View.textContent = JSON.stringify(renderedData.structured, null, 2);
+      } catch (error) {
+        statusText.textContent = `Request Error ${traceId.slice(0, 8)}`;
+        assistantHeadline.textContent = "Request error";
+        assistantMessage.textContent = error.message;
+        renderList(assistantReasons, ["The browser could not complete the request."], "");
+        renderList(assistantAdjustments, [], "No adjustments available.");
+        stage01View.textContent = error.message;
+        stage2View.textContent = error.message;
+        stage3View.textContent = error.message;
+        stage45View.textContent = error.message;
+      }
+    }
+
+    runButton.addEventListener("click", runDecisionEngine);
+    copyTraceButton.addEventListener("click", async () => {
+      if (!currentTraceId) {
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(currentTraceId);
+        copyTraceButton.textContent = "Copied";
+        window.setTimeout(() => {
+          copyTraceButton.textContent = "Copy Trace";
+        }, 1200);
+      } catch (error) {
+        copyTraceButton.textContent = "Copy Failed";
+        window.setTimeout(() => {
+          copyTraceButton.textContent = "Copy Trace";
+        }, 1200);
+      }
+    });
+  </script>
+</body>
+</html>
