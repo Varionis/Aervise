@@ -2,6 +2,10 @@
 
 Aervise is a deterministic environmental decision system that turns air quality and weather data into actionable recommendations for outdoor decisions.
 
+This repository is public by design. Keep secrets, runtime logs, traces, and any user-identifiable data out of version control.
+
+This project is an explainable MVP system and not a medical device or emergency-response service.
+
 Instead of exposing raw PM2.5 or temperature alone, the system answers questions like:
 
 - Can I go for a run right now?
@@ -54,6 +58,8 @@ Logs and Traces
 - `BEST_TIME_TODAY` is real, but still weather-led
 - `WHAT_IF` is real for timing and duration simulations, but still same-day and weather-led
 - stale saved fallback snapshots are now blocked for same-day planning and same-day recommendation flows instead of being treated like current conditions
+- same-day timing modes now choose candidate windows by full deterministic score, not by raw temperature alone
+- climate-relative comfort thresholds and location-season normalization are not implemented yet and remain MVP 2 scope
 - Personalization is minimal
 - The UI is an operator/debug surface, not a consumer product UI
 
@@ -109,6 +115,13 @@ Open:
 ```text
 http://127.0.0.1:8000/
 ```
+
+## Public Repo Hygiene
+
+- real secrets must never be committed
+- use `.env.example` for variable names only
+- `logs/` and `traces/` are local runtime artifacts and are intentionally ignored
+- see [SECURITY.md](/d:/Users/arnav/Documents/Github_Repos/Aervise/SECURITY.md#L1) for reporting and operational guidance
 
 ## Main API Paths
 

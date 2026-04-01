@@ -1,7 +1,10 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc
-logs
-traces
-docs/legacy
+*.log
+*.jsonl
+logs/
+traces/
