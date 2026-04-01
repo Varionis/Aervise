@@ -12,8 +12,6 @@ class EnrichmentPreviewService:
         missing_requirements = []
         if intent_recognition["activity"] == ActivityType.UNKNOWN:
             missing_requirements.append(RequestFieldName.ACTIVITY)
-        if intent_recognition["duration_minutes"] is None:
-            missing_requirements.append(RequestFieldName.DURATION_MINUTES)
         if entry_point["location"].get("lat") is None or entry_point["location"].get("lon") is None:
             missing_requirements.append(RequestFieldName.LOCATION)
 

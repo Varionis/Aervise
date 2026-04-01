@@ -19,8 +19,8 @@ class OpenMeteoProvider:
             "longitude": lon,
             "current": "temperature_2m,relative_humidity_2m,wind_speed_10m",
             "hourly": "temperature_2m,relative_humidity_2m,wind_speed_10m",
-            "forecast_hours": 12,
-            "timezone": "GMT",
+            "forecast_days": 7,
+            "timezone": "auto",
             "wind_speed_unit": "ms",
         }
         payload = self.http_client.get(f"{self.settings.openmeteo_api_url}/forecast", params=params)
@@ -33,7 +33,7 @@ class OpenMeteoProvider:
         wind_speeds = hourly.get("wind_speed_10m", [])
 
         forecast = []
-        for index, timestamp in enumerate(times[:12]):
+        for index, timestamp in enumerate(times):
             forecast.append(
                 {
                     "timestamp_utc": self._to_iso_utc(timestamp),

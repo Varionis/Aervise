@@ -1,267 +1,136 @@
-# Aervise — Environmental Decision Engine
+# Aervise
 
-> **“Can I do this right now?” — answered intelligently.**
+Aervise is a deterministic environmental decision system that turns air quality and weather data into actionable recommendations for outdoor decisions.
 
-Aervise is an AI-powered decision system that transforms environmental data (air quality, weather, exposure) into **actionable, real-time recommendations**.
+Instead of exposing raw PM2.5 or temperature alone, the system answers questions like:
 
-Instead of showing raw metrics like AQI or temperature, Aervise answers real user questions:
+- Can I go for a run right now?
+- Is it okay to walk outside for 30 minutes?
+- Should I modify the plan or avoid it for now?
 
-* “Can I go for a run right now?”
-* “Is it safe to walk outside for 30 minutes?”
-* “Should I wait until evening?”
+## Current Architecture
 
----
-
-## Core Idea
-
-Most systems provide **data**.
-
-Aervise provides **decisions**.
-
-It combines:
-
-* Air quality (PM2.5, NO2, O3, etc.)
-* Weather (temperature, humidity, heat index)
-* Duration of activity
-* Activity intensity
-
-…into a **decision engine** that outputs:
-
-- Recommendation
-- Risk level
-- Reasoning
-
----
-
-## System Architecture (Planned)
-
-```
-User Intent → Decision Engine → Output
-
-Where Decision Engine =
-    Environmental Data
-  + Exposure Modeling
-  + Policy Rules
-  + Risk Scoring
+```text
+Stage 0: Entry Point
+  ->
+Stage 1: Intent Recognition
+  ->
+Stage 2: Context Enrichment
+  ->
+Stage 3: Decision Payload Builder
+  ->
+Deterministic Decision Core
+  ->
+Structured Decision Output
+  ->
+Rendered User Message
+  ->
+Logs and Traces
 ```
 
-### Layers
+## What Exists Today
 
-1. **Input Layer**
+- FastAPI API and demo/debug UI
+- Stage 0 and Stage 1 interaction pipeline from raw user message
+- Stage 2 enrichment using OpenAQ plus weather provider fallback
+- Stage 3 canonical decision input builder
+- Deterministic decision core:
+  - Layer 2 factor evaluation
+  - Layer 3 policy mapping
+  - Layer 4 explanation generation
+- Typed contracts for:
+  - intent
+  - environment
+  - decision input
+  - decision output
+- Rendering layer for stable user-facing messaging
+- Route-level observability with structured logs and trace events
 
-   * Activity (run, walk, etc.)
-   * Duration
-   * Time (now / later)
+## Current Limits
 
-2. **Data Layer**
+- AQ forecast is not implemented
+- Timing guidance is weather-only
+- Personalization is minimal
+- The UI is an operator/debug surface, not a consumer product UI
 
-   * Air quality APIs
-   * Weather APIs
+## Implemented Structure
 
-3. **Factor Evaluation Layer**
-
-   * Air burden calculation
-   * Heat index modeling
-   * Duration weighting
-   * Intensity multipliers
-
-4. **Decision Engine**
-
-   * Risk scoring
-   * Policy rules
-   * Threshold logic
-
-5. **Output Layer**
-
-   * Decision (Go / Caution / Avoid)
-   * Explanation
-   * Assumptions
-
----
-
-## Use Cases
-
-### Real-Time Decisions
-
-* “Can I go for a run now?”
-* “Is it safe to walk outside?”
-
-### Controlled Decisions
-
-* “Should I stay indoors or go out?”
-
-### Planning
-
-* “What’s the best time today to go out?”
-* “Is evening better than now?”
-
-### Simulation (What-if)
-
-* “What if I go later?”
-* “Can I reduce duration and go?”
-
----
-
-## MVP Scope
-
-### Included
-
-* Real-time decision engine
-* Air quality + weather integration
-* Basic risk scoring
-* Reasoned outputs
-
-### Not Included (Yet)
-
-* Long-term forecasting
-* Personalized health profiles
-* Indoor air modeling
-* Wearable integrations
-
----
-
-## Tech Stack (Planned)
-
-* **Backend:** Python (FastAPI)
-* **Data Processing:** Pandas / NumPy
-* **Decision Engine:** Custom logic + scoring system
-* **APIs:** Air quality + weather providers
-* **Deployment:** TBD (Azure / AWS)
-
----
-
-## Project Structure
-
-```
+```text
 aervise/
-│
-├── interfaces/                 # Entry points (NOT core)
-│   ├── api/
-│   ├── chat/
-│   ├── cli/
-│   └── test_harness/
-│
-├── pipeline/                   # Orchestration layer
-│   ├── intent/
-│   │   ├── parser.py
-│   │   ├── schemas.py
-│   │
-│   ├── enrichment/
-│   │   ├── air_provider.py
-│   │   ├── weather_provider.py
-│   │   ├── normalization.py
-│   │
-│   ├── payload_builder/
-│   │   ├── builder.py
-│   │   ├── validators.py
-│   │
-│   └── orchestrator.py         # end-to-end flow
-│
-├── core/                       # 🔥 PURE DECISION ENGINE ONLY
-│   ├── layers/
-│   │   ├── layer1_intent_env.py
-│   │   ├── layer2_factor_eval.py
-│   │   ├── layer3_policy.py
-│   │   ├── layer4_explanation.py
-│   │
-│   ├── models/
-│   │   ├── risk_models.py
-│   │   ├── exposure_models.py
-│   │
-│   ├── policies/
-│   │   ├── thresholds.py
-│   │   ├── rules.py
-│   │
-│   └── engine.py               # main deterministic engine entry
-│
-├── contracts/                  # 🔥 SCHEMAS (VERY IMPORTANT)
-│   ├── intent_schema.py
-│   ├── environment_schema.py
-│   ├── decision_input.py
-│   ├── decision_output.py
-│
-├── rendering/                  # Output → user message
-│   ├── templates.py
-│   ├── formatter.py
-│
-├── observability/
-│   ├── logger.py
-│   ├── trace_schema.py
-│
-|── tests/
-|   ├── engine/
-|   ├── pipeline/
-|   └── integration/
-├── docs/
-│
-├── .env.example
-├── requirements.txt
-└── README.md
+|-- interfaces/
+|   `-- api/
+|       |-- main.py
+|       |-- routes/
+|       |-- static/
+|       `-- templates/
+|-- pipeline/
+|   |-- intent/
+|   |-- enrichment/
+|   |-- payload_builder/
+|   `-- orchestrator.py
+|-- core/
+|   `-- layers/
+|-- contracts/
+|   |-- intent_schema.py
+|   |-- environment_schema.py
+|   |-- decision_input.py
+|   `-- decision_output.py
+|-- rendering/
+|   |-- formatter.py
+|   `-- templates.py
+|-- observability/
+|   |-- logger.py
+|   |-- runtime.py
+|   `-- trace_schema.py
+|-- tests/
+|   |-- engine/
+|   |-- pipeline/
+|   `-- integration/
+|-- docs/
+|-- logs/
+|-- traces/
+|-- .env.example
+|-- requirements.txt
+`-- README.md
 ```
 
----
+## Run
 
-## Design Principles
-- Separation of concerns → API vs logic vs data
-- Pure core logic → decision engine is testable + reusable
-- Service orchestration → scalable workflows
-- Future-ready → can evolve into microservices
+```bash
+uvicorn interfaces.api.main:app --reload
+```
 
----
+Open:
 
-## Evolution Path
+```text
+http://127.0.0.1:8000/
+```
 
-| Phase | Architecture |
-| ----- | ------------ |
-| Phase 1 |	Modular monolith (current) |
-| Phase 2 |	Extract services (env / decision) |
-| Phase 3 |	Mobile app (iOS + Android) |
+## Main API Paths
 
----
+- `POST /interaction/preview`
+- `POST /interaction/enrichment-preview`
+- `POST /interaction/enrich`
+- `POST /interaction/build-payload`
+- `POST /decision/evaluate`
+- `POST /decision/render`
+- `POST /decision/evaluate-rendered`
+- `POST /decision/debug/layers`
 
-## Current Status
+## Validation
 
-> Early Stage — System Design Phase
+Current verified test pass:
 
-* [x] Use cases defined
-* [x] User flows mapped
-* [ ] Decision engine design
-* [ ] Factor modeling
-* [ ] API integration
-* [ ] MVP build
+```bash
+python -m unittest tests.pipeline.test_intent_parser tests.pipeline.test_layer1 tests.engine.test_layer2 tests.engine.test_layer3 tests.engine.test_layer4 tests.integration.test_api tests.integration.test_rendering
+```
 
----
+## Documentation
 
-## Vision
+The source-of-truth schema and flow docs are:
 
-Aervise is not just a project — it’s a step toward:
-
-> **Decision Intelligence Systems**
-> where AI answers *“Should I?”*, not just *“What is?”*
-
----
-
-## Contributing
-
-Currently a solo build, but open to:
-
-* Feedback
-* Architecture suggestions
-* Collaboration ideas
-
----
-
-## Contact
-
-**Arnav Ajay**
-Toronto, Canada
-[LinkedIn](https://linkedin.com/in/arnav-ajay)
-[GitHub](https://github.com/Arnav-Ajay)
-
----
-
-## ⭐ If you like this project
-
-Give it a star ⭐ — it helps a lot!
-
----
+- `docs/04_interaction_flow_contract.md`
+- `docs/04_a_intent_schema.md`
+- `docs/04_b_environment_schema.md`
+- `docs/04_c_decision_input_schema.md`
+- `docs/04_d_decision_output_schema.md`
