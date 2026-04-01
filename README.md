@@ -35,6 +35,7 @@ Logs and Traces
 - Stage 2 enrichment using OpenAQ plus weather provider fallback
 - Stage 3 canonical decision input builder
 - Deterministic decision core:
+  - Feasibility evaluation
   - Layer 2 factor evaluation
   - Layer 3 policy mapping
   - Layer 4 explanation generation
@@ -49,7 +50,10 @@ Logs and Traces
 ## Current Limits
 
 - AQ forecast is not implemented
-- Timing guidance is weather-only
+- `COMPARE_NOW_LATER` is real, but still weather-led
+- `BEST_TIME_TODAY` is real, but still weather-led
+- `WHAT_IF` is real for timing and duration simulations, but still same-day and weather-led
+- stale saved fallback snapshots are now blocked for same-day planning and same-day recommendation flows instead of being treated like current conditions
 - Personalization is minimal
 - The UI is an operator/debug surface, not a consumer product UI
 
@@ -122,15 +126,15 @@ http://127.0.0.1:8000/
 Current verified test pass:
 
 ```bash
-python -m unittest tests.pipeline.test_intent_parser tests.pipeline.test_layer1 tests.engine.test_layer2 tests.engine.test_layer3 tests.engine.test_layer4 tests.integration.test_api tests.integration.test_rendering
+python -m unittest tests.pipeline.test_window_selector tests.pipeline.test_intent_parser tests.pipeline.test_layer1 tests.engine.test_feasibility tests.engine.test_layer2 tests.engine.test_layer3 tests.engine.test_layer4 tests.integration.test_api tests.integration.test_rendering tests.integration.test_compare_mode tests.integration.test_best_time_mode tests.integration.test_what_if_mode
 ```
 
 ## Documentation
 
 The source-of-truth schema and flow docs are:
 
-- `docs/04_interaction_flow_contract.md`
-- `docs/04_a_intent_schema.md`
-- `docs/04_b_environment_schema.md`
-- `docs/04_c_decision_input_schema.md`
-- `docs/04_d_decision_output_schema.md`
+- `docs/05_interaction_flow_contract.md`
+- `docs/06_intent_schema.md`
+- `docs/07_environment_schema.md`
+- `docs/08_decision_input_schema.md`
+- `docs/09_decision_output_schema.md`

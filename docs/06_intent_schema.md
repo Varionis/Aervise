@@ -53,6 +53,7 @@ Convert raw text into explicit structured intent for the outer pipeline.
   },
   "intensity": "high",
   "duration_minutes": null,
+  "reference_duration_minutes": null,
   "time_context": "specific_hour",
   "time_horizon": "tomorrow",
   "time_window": "evening",
@@ -78,6 +79,7 @@ Convert raw text into explicit structured intent for the outer pipeline.
 | `activity_profile` | object or `null` | yes | Semantic profile used for downstream defaults and archetypes |
 | `intensity` | enum | yes | Explicit or inferred |
 | `duration_minutes` | `int \| null` | yes | Optional; null is valid for open-ended checks |
+| `reference_duration_minutes` | `int \| null` | no | Optional baseline duration for duration-adjustment requests like `20 minutes instead of an hour` |
 | `time_context` | enum | yes | Decision-timing mode used by downstream flow |
 | `time_horizon` | enum | yes | Calendar-oriented horizon like `tomorrow` or `this_weekend` |
 | `time_window` | enum | yes | General purpose daypart window like `morning` or `evening` |
@@ -260,6 +262,11 @@ And it separates:
 This is intentionally broader than the original parser and avoids forcing phrases like `tomorrow after 5 pm` into the old `now` / `later` split.
 
 This is still rule-based and MVP-grade, but it now matches the documented use-case surface much better than the original single-intent parser.
+
+For duration-adjustment requests, Stage 1 now preserves both:
+
+- `duration_minutes` for the simulated scenario
+- `reference_duration_minutes` for the baseline plan when the user explicitly provides one
 
 ---
 

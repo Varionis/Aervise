@@ -51,6 +51,8 @@ It must not perform policy logic.
   "forecast_hours": [],
   "time_context": {
     "snapshot_timestamp_utc": "2026-03-29T22:52:01.078223+00:00",
+    "snapshot_age_minutes": 14.2,
+    "data_origin": "live_fetch",
     "forecast_window_available": true
   },
   "forecast_capabilities": {
@@ -80,6 +82,8 @@ It must not perform policy logic.
 - `forecast_hours` is weather-only for now
 - `forecast_capabilities` must explicitly state that AQ forecast is not available
 - `data_quality` must remain explicit even when data looks good
+- `time_context.data_origin` distinguishes live fetches from saved fallback snapshots
+- `time_context.snapshot_age_minutes` exists so stale saved fallback snapshots can be blocked for same-day planning and same-day recommendation flows
 
 ---
 

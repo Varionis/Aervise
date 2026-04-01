@@ -31,13 +31,16 @@ It must not perform:
         "expected_duration_band": "medium",
         "exposure_level": "high",
         "location_context": "outdoor",
-        "motion_pattern": "continuous"
+        "motion_pattern": "continuous",
+        "typical_duration_min": 60,
+        "hard_upper_duration_min": 240
       },
       "activity_group": "exercise_outdoor",
       "activity_archetype": "outdoor_high_exertion",
       "decision_archetype": "NOW_CHECK",
       "intensity": "high",
       "duration_min": 30,
+      "reference_duration_min": null,
       "duration_band": "medium",
       "timing_mode": "now",
       "requested_time": null,
@@ -71,9 +74,13 @@ It must not perform:
 
 - `request.intent` is built from Stage 1 output, not from raw user text
 - `activity_profile` is carried forward so Stage 3 can derive defaults and engine archetypes from exertion/exposure semantics, not only from hardcoded labels
+- `activity_profile` also carries realism bounds so the core can detect requests that exceed typical or supported durations
 - `environment_state` must arrive already normalized from Stage 2
 - unresolved Stage 1 inputs such as unknown activity must block Stage 3
 - missing duration should only block Stage 3 for intents that truly require explicit duration, such as `duration_adjustment`
+- `source_intent` must survive into `decision_archetype` mapping; `compare_times` must not collapse back to `NOW_CHECK` just because the message also mentions "now"
+- `best_time_today` must survive into `BEST_TIME_TODAY` so the deterministic core can rank multiple same-day forecast windows instead of evaluating only one condition set
+- `duration_adjustment` must survive into `WHAT_IF`, and when Stage 1 provides `reference_duration_minutes`, Stage 3 must carry that forward as `reference_duration_min`
 - this is the only contract the deterministic engine should accept
 
 ---

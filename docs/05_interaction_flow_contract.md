@@ -160,6 +160,7 @@ This stage owns:
 - missing-data handling
 - source confidence
 - forecast capability flags
+- fallback snapshot freshness tagging so stale saved snapshots can be blocked for same-day planning or same-day recommendation flows
 
 ---
 
@@ -223,11 +224,19 @@ Must remain:
 
 Current deterministic core decomposition:
 
+- feasibility evaluation
 - Layer 2: factor evaluation
 - Layer 3: hard constraints + policy mapping
 - Layer 4: explanation + modification guidance
 
 Stage 3 payload building now lives outside the core engine.
+
+Decision-mode reality:
+
+- `COMPARE_NOW_LATER` now has a distinct execution path using current conditions plus a selected later same-day weather window
+- `BEST_TIME_TODAY` now has a distinct execution path that ranks same-day forecast windows using weather-led scoring
+- `WHAT_IF` now has a distinct execution path for same-day timing-shift simulations and duration-adjustment simulations
+- future-day requests can now select forecast weather windows in Stage 2, but remain lower-confidence because AQ forecast is still unavailable
 
 ---
 
@@ -299,10 +308,10 @@ So Aervise should maintain two different outputs:
 
 These are the schema boundaries that should stay explicit:
 
-1. `04_a_intent_schema.md`
-2. `04_b_environment_schema.md`
-3. `04_c_decision_input_schema.md`
-4. `04_d_decision_output_schema.md`
+1. `06_intent_schema.md`
+2. `07_environment_schema.md`
+3. `08_decision_input_schema.md`
+4. `09_decision_output_schema.md`
 
 These should become:
 
