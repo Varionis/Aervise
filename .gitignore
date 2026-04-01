@@ -1,7 +1,6 @@
 .env
+.venv/
 __pycache__/
 *.pyc
-logs/*.log
-traces/*.jsonl
-.env
-.venv
+logs
+traces
