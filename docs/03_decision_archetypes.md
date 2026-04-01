@@ -37,6 +37,7 @@ Think of them as **execution modes**.
 - Uses **current + short-term forecast**
 - Compares **2–3 time slots**
 - Returns relative recommendation
+- In the current MVP, candidate slots are ranked by the full deterministic score, not by temperature-only heuristics
 
 ---
 
@@ -50,6 +51,8 @@ Think of them as **execution modes**.
 - Scans **time windows (e.g., hourly)**
 - Scores each window
 - Returns ranked options
+- In the current MVP, the ranking is still weather-led because AQ forecast is not available
+- Location-relative comfort normalization is explicitly deferred to MVP 2
 
 ---
 
@@ -63,6 +66,8 @@ Think of them as **execution modes**.
 - Adjusts **one variable**
 - Keeps others constant
 - Lightweight simulation
+- For timing simulations, the current MVP chooses the best same-day candidate by full deterministic score
+- Climate-relative “too cold / too hot for this place and season” modeling is deferred to MVP 2
 
 ---
 

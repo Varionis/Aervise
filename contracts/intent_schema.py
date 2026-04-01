@@ -187,6 +187,7 @@ class IntentRecognitionResult(BaseModel):
     activity_profile: ActivityProfile | None = None
     intensity: IntensityLevel
     duration_minutes: int | None = Field(default=None, ge=1, le=720)
+    reference_duration_minutes: int | None = Field(default=None, ge=1, le=720)
     time_context: TimeContext
     time_horizon: TimeHorizon = TimeHorizon.UNSPECIFIED
     time_window: TimeWindow = TimeWindow.UNSPECIFIED

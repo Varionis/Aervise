@@ -237,6 +237,8 @@ Decision-mode reality:
 - `BEST_TIME_TODAY` now has a distinct execution path that ranks same-day forecast windows using weather-led scoring
 - `WHAT_IF` now has a distinct execution path for same-day timing-shift simulations and duration-adjustment simulations
 - future-day requests can now select forecast weather windows in Stage 2, but remain lower-confidence because AQ forecast is still unavailable
+- same-day timing modes now select candidate windows by the full deterministic score for each simulated hour, not by temperature-only shortcuts
+- location-relative comfort thresholds remain out of MVP 1 and are explicitly deferred to MVP 2
 
 ---
 

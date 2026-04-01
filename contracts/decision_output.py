@@ -49,6 +49,13 @@ class TimingConfidence(str, Enum):
     HIGH = "high"
 
 
+class DecisionMode(str, Enum):
+    STANDARD = "standard"
+    COMPARE_NOW_LATER = "compare_now_later"
+    BEST_TIME_TODAY = "best_time_today"
+    WHAT_IF = "what_if"
+
+
 class FactorPayload(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     level: FactorSeverity
@@ -131,6 +138,65 @@ class TimingGuidance(BaseModel):
     assumption: str | None = None
 
 
+class ComparisonCandidate(BaseModel):
+    label: str
+    time: str | None = None
+    display_time: str | None = None
+    decision_label: DecisionLabel
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    weather_basis: str
+
+
+class ComparisonModeResult(BaseModel):
+    selected_option: str
+    basis: str
+    candidates: list[ComparisonCandidate] = Field(default_factory=list)
+
+
+class BestTimeCandidate(BaseModel):
+    time: str | None = None
+    display_time: str | None = None
+    decision_label: DecisionLabel
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    weather_basis: str
+
+
+class BestTimeModeResult(BaseModel):
+    selected_time: str | None = None
+    display_time: str | None = None
+    basis: str
+    evaluated_candidates_count: int = 0
+    candidates: list[BestTimeCandidate] = Field(default_factory=list)
+
+
+class WhatIfCandidate(BaseModel):
+    label: str
+    time: str | None = None
+    display_time: str | None = None
+    duration_min: int | None = None
+    decision_label: DecisionLabel
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    basis: str
+
+
+class WhatIfModeResult(BaseModel):
+    scenario_type: str
+    improvement_expected: bool | None = None
+    baseline_assumption: str | None = None
+    baseline: WhatIfCandidate
+    scenario: WhatIfCandidate
+
+
+class ModeResult(BaseModel):
+    mode: DecisionMode = DecisionMode.STANDARD
+    comparison: ComparisonModeResult | None = None
+    best_time: BestTimeModeResult | None = None
+    what_if: WhatIfModeResult | None = None
+
+
 class Explanation(BaseModel):
     summary: str
     reasons: list[str]
@@ -163,5 +229,6 @@ class DecisionOutput(BaseModel):
     assumptions: list[str]
     policy_trace: PolicyTrace
     explanation: Explanation
+    mode_result: ModeResult = Field(default_factory=ModeResult)
     safe_alternative_available: bool
     alternative_recommendation: TimingAlternative | None = None

@@ -30,6 +30,7 @@ class Settings:
     openweather_units: str
     openmeteo_api_url: str
     weather_provider_priority: tuple[str, ...]
+    max_fallback_snapshot_age_minutes: int
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -67,4 +68,5 @@ def get_settings() -> Settings:
             for item in _env("WEATHER_PROVIDER_PRIORITY", "openweather,openmeteo").split(",")
             if item.strip()
         ),
+        max_fallback_snapshot_age_minutes=int(_env("AERVISE_MAX_FALLBACK_SNAPSHOT_AGE_MINUTES", "180")),
     )

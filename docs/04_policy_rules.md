@@ -106,3 +106,34 @@ IF (sensitive_user AND AQI > 80):
 ```
 
 ---
+
+## F. Timing Mode Ranking (Current MVP)
+
+For timing-oriented modes:
+
+- `COMPARE_NOW_LATER`
+- `BEST_TIME_TODAY`
+- `WHAT_IF` with timing adjustment
+
+candidate forecast windows should be ranked by the full deterministic score for that simulated window, not by a single raw weather field such as temperature.
+
+That means current MVP ranking already reflects:
+
+- heat burden
+- wind disruption
+- confidence penalty
+- duration and intensity effects
+
+This is still weather-led today because AQ forecast is not available.
+
+---
+
+## G. MVP 2 Scope
+
+The following is intentionally deferred:
+
+- climate-relative comfort thresholds by location and season
+- “unusually hot for Toronto in April” style normalization
+- activity-specific comfort targets derived from local climate history
+
+Those enhancements should modify how weather burden is normalized, but they should not replace the deterministic score-based ranking structure.

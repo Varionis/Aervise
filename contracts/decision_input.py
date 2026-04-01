@@ -102,6 +102,7 @@ class DecisionIntent(BaseModel):
     decision_archetype: DecisionArchetype
     intensity: str
     duration_min: int = Field(ge=1, le=720)
+    reference_duration_min: int | None = Field(default=None, ge=1, le=720)
     duration_band: DurationBand
     timing_mode: str
     requested_time: str | None = None
