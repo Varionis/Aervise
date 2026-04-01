@@ -117,6 +117,58 @@
     const stage45View = document.getElementById("stage45-view");
     let currentTraceId = null;
 
+    function summarizeForecastHours(forecastHours) {
+      if (!forecastHours || forecastHours.length === 0) {
+        return {
+          count: 0,
+          first_time: null,
+          last_time: null,
+          sample: []
+        };
+      }
+
+      return {
+        count: forecastHours.length,
+        first_time: forecastHours[0].time || null,
+        last_time: forecastHours[forecastHours.length - 1].time || null,
+        sample: forecastHours.slice(0, 3)
+      };
+    }
+
+    function projectStage2(environmentState) {
+      return {
+        air_quality: environmentState.air_quality,
+        weather: environmentState.weather,
+        time_context: environmentState.time_context,
+        forecast_capabilities: environmentState.forecast_capabilities,
+        data_quality: environmentState.data_quality,
+        location: environmentState.location,
+        forecast_summary: summarizeForecastHours(environmentState.forecast_hours)
+      };
+    }
+
+    function projectCore(debugData) {
+      return {
+        feasibility: debugData.feasibility,
+        layer2: debugData.layer2,
+        layer3: {
+          decision: debugData.layer3?.decision,
+          recommendation: debugData.layer3?.recommendation,
+          factor_breakdown: debugData.layer3?.factor_breakdown,
+          reasoning: debugData.layer3?.reasoning,
+          modifications: debugData.layer3?.modifications,
+          assumptions: debugData.layer3?.assumptions,
+          policy_trace: debugData.layer3?.policy_trace
+        },
+        layer4: {
+          explanation: debugData.layer4?.explanation,
+          safe_alternative_available: debugData.layer4?.safe_alternative_available,
+          alternative_recommendation: debugData.layer4?.alternative_recommendation,
+          mode_result: debugData.layer4?.mode_result
+        }
+      };
+    }
+
     function renderList(target, items, emptyText) {
       target.innerHTML = "";
       if (!items || items.length === 0) {
@@ -208,6 +260,13 @@
           return;
         }
 
+        const debugResponse = await fetch("/decision/debug/layers", {
+          method: "POST",
+          headers: requestHeaders,
+          body: JSON.stringify(payloadData)
+        });
+        const debugData = await debugResponse.json();
+
         const renderedResponse = await fetch("/decision/evaluate-rendered", {
           method: "POST",
           headers: requestHeaders,
@@ -215,9 +274,10 @@
         });
         const renderedData = await renderedResponse.json();
 
-        if (!renderedResponse.ok) {
+        if (!debugResponse.ok || !renderedResponse.ok) {
           const rendered = JSON.stringify(
             {
+              debug: debugData,
               decision_input: payloadData,
               rendered: renderedData
             },
@@ -237,8 +297,15 @@
             null,
             2
           );
-          stage2View.textContent = JSON.stringify(enrichData.environment_state, null, 2);
-          stage3View.textContent = JSON.stringify(payloadData, null, 2);
+          stage2View.textContent = JSON.stringify(projectStage2(enrichData.environment_state), null, 2);
+          stage3View.textContent = JSON.stringify(
+            {
+              request: payloadData.request,
+              layer_trace: payloadData.layer_trace
+            },
+            null,
+            2
+          );
           stage45View.textContent = rendered;
           return;
         }
@@ -257,9 +324,16 @@
           null,
           2
         );
-        stage2View.textContent = JSON.stringify(enrichData.environment_state, null, 2);
-        stage3View.textContent = JSON.stringify(payloadData, null, 2);
-        stage45View.textContent = JSON.stringify(renderedData.structured, null, 2);
+        stage2View.textContent = JSON.stringify(projectStage2(enrichData.environment_state), null, 2);
+        stage3View.textContent = JSON.stringify(
+          {
+            request: payloadData.request,
+            layer_trace: payloadData.layer_trace
+          },
+          null,
+          2
+        );
+        stage45View.textContent = JSON.stringify(projectCore(debugData), null, 2);
       } catch (error) {
         statusText.textContent = `Request Error ${traceId.slice(0, 8)}`;
         assistantHeadline.textContent = "Request error";

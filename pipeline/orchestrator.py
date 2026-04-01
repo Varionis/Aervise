@@ -4,12 +4,23 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core import RequestFeasibilityEvaluator, DecisionLayer2Evaluator, DecisionLayer3Policy, DecisionLayer4Explainer
+from core.modes import BestTimeTodayEngine, CompareNowLaterEngine, WhatIfEngine
 from pipeline.payload_builder.builder import DecisionPayloadBuilder
 
 
 @dataclass
 class DecisionService:
     def evaluate(self, decision_input: dict[str, Any]) -> dict[str, Any]:
+        archetype = decision_input["request"]["intent"].get("decision_archetype")
+        if archetype == "COMPARE_NOW_LATER":
+            return CompareNowLaterEngine().evaluate(decision_input)
+        if archetype == "BEST_TIME_TODAY":
+            return BestTimeTodayEngine().evaluate(decision_input)
+        if archetype == "WHAT_IF":
+            return WhatIfEngine().evaluate(decision_input)
+        return self._evaluate_standard(decision_input)
+
+    def _evaluate_standard(self, decision_input: dict[str, Any]) -> dict[str, Any]:
         feasibility = RequestFeasibilityEvaluator().evaluate(decision_input)
         layer2 = DecisionLayer2Evaluator().evaluate(feasibility)
         layer3 = DecisionLayer3Policy().evaluate(layer2)
@@ -17,6 +28,39 @@ class DecisionService:
         return layer4
 
     def debug_from_decision_input(self, decision_input: dict[str, Any]) -> dict[str, Any]:
+        archetype = decision_input["request"]["intent"].get("decision_archetype")
+        if archetype in {"COMPARE_NOW_LATER", "BEST_TIME_TODAY", "WHAT_IF"}:
+            if archetype == "COMPARE_NOW_LATER":
+                result = CompareNowLaterEngine().evaluate(decision_input)
+            elif archetype == "BEST_TIME_TODAY":
+                result = BestTimeTodayEngine().evaluate(decision_input)
+            else:
+                result = WhatIfEngine().evaluate(decision_input)
+            return {
+                "decision_input": decision_input,
+                "feasibility": result["request_feasibility"],
+                "layer2": {
+                    "risk_factors": result["risk_factors"],
+                    "factor_model": result["layer_trace"].get("factor_model"),
+                },
+                "layer3": {
+                    "decision": result["decision"],
+                    "recommendation": result["recommendation"],
+                    "factor_breakdown": result["factor_breakdown"],
+                    "reasoning": result["reasoning"],
+                    "modifications": result["modifications"],
+                    "assumptions": result["assumptions"],
+                    "policy_trace": result["policy_trace"],
+                },
+                "layer4": {
+                    "explanation": result["explanation"],
+                    "modifications": result["modifications"],
+                    "safe_alternative_available": result["safe_alternative_available"],
+                    "alternative_recommendation": result["alternative_recommendation"],
+                    "mode_result": result.get("mode_result"),
+                },
+            }
+
         feasibility = RequestFeasibilityEvaluator().evaluate(decision_input)
         layer2 = DecisionLayer2Evaluator().evaluate(feasibility)
         layer3 = DecisionLayer3Policy().evaluate(layer2)

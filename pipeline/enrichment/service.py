@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 
@@ -30,7 +31,11 @@ class EnrichmentService:
             ),
         )
         snapshot = aggregator.fetch_snapshot(lat=lat, lon=lon)
-        return self.snapshot_to_environment_state(snapshot, intent_recognition=intent_recognition)
+        return self.snapshot_to_environment_state(
+            snapshot,
+            intent_recognition=intent_recognition,
+            data_origin="live_fetch",
+        )
 
     def enrich_with_fallback(self, *, lat: float, lon: float, intent_recognition: dict | None = None) -> dict:
         try:
@@ -39,13 +44,23 @@ class EnrichmentService:
             snapshot = self._load_saved_snapshot()
             if snapshot is None:
                 raise
-            return self.snapshot_to_environment_state(snapshot, intent_recognition=intent_recognition)
+            return self.snapshot_to_environment_state(
+                snapshot,
+                intent_recognition=intent_recognition,
+                data_origin="saved_snapshot_fallback",
+            )
 
     @staticmethod
-    def snapshot_to_environment_state(snapshot: dict, intent_recognition: dict | None = None) -> dict:
+    def snapshot_to_environment_state(
+        snapshot: dict,
+        intent_recognition: dict | None = None,
+        data_origin: str = "inline_snapshot",
+    ) -> dict:
         air = snapshot.get("environment", {}).get("air", {})
         weather = snapshot.get("environment", {}).get("weather", {})
         source_meta = (snapshot.get("meta") or {}).get("sources") or {}
+        snapshot_timestamp = snapshot.get("timestamp_utc")
+        snapshot_age_minutes = EnrichmentService._snapshot_age_minutes(snapshot_timestamp)
 
         missing_fields = []
         for field_name, value in {
@@ -83,7 +98,9 @@ class EnrichmentService:
                 for item in (snapshot.get("forecast") or [])
             ],
             "time_context": {
-                "snapshot_timestamp_utc": snapshot.get("timestamp_utc"),
+                "snapshot_timestamp_utc": snapshot_timestamp,
+                "snapshot_age_minutes": snapshot_age_minutes,
+                "data_origin": data_origin,
                 "forecast_window_available": bool(snapshot.get("forecast")),
             },
             "forecast_capabilities": {
@@ -110,6 +127,13 @@ class EnrichmentService:
                 time_context=environment_state["time_context"],
             )
         return environment_state
+
+    @staticmethod
+    def _snapshot_age_minutes(timestamp_utc: str | None) -> float | None:
+        if not timestamp_utc:
+            return None
+        parsed = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+        return round((datetime.now(UTC) - parsed.astimezone(UTC)).total_seconds() / 60.0, 2)
 
     @staticmethod
     def _pollutant(payload: dict | None) -> dict | None:

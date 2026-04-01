@@ -162,6 +162,7 @@ class DecisionPayloadBuilder:
 
         normalized_profile = self._normalize_activity_profile(payload.get("activity_profile"))
         duration_min = int(payload.get("duration_minutes") or self._default_duration_for(source_intent, activity_profile, normalized_profile))
+        reference_duration_min = payload.get("reference_duration_minutes")
         timing_mode = str(self._value(payload.get("time_context")) or TimeContext.NOW.value).strip().lower()
         time_horizon = str(self._value(payload.get("time_horizon")) or "unspecified").strip().lower()
         time_window = str(self._value(payload.get("time_window")) or "unspecified").strip().lower()
@@ -185,6 +186,7 @@ class DecisionPayloadBuilder:
             "decision_archetype": decision_archetype,
             "intensity": intensity,
             "duration_min": duration_min,
+            "reference_duration_min": int(reference_duration_min) if reference_duration_min is not None else None,
             "duration_band": self._duration_band(duration_min),
             "timing_mode": timing_mode,
             "requested_time": self._requested_time_label(time_horizon=time_horizon, time_window=time_window),
@@ -242,8 +244,14 @@ class DecisionPayloadBuilder:
     def _decision_archetype(*, source_intent: str, timing_mode: str, time_horizon: str) -> str:
         if time_horizon in {"tomorrow", "this_weekend", "future_day"}:
             return DecisionArchetype.FUTURE_LOOKAHEAD.value
+        if source_intent == IntentType.COMPARE_TIMES.value:
+            return DecisionArchetype.COMPARE_NOW_LATER.value
         if source_intent == IntentType.BEST_TIME_TODAY.value:
             return DecisionArchetype.BEST_TIME_TODAY.value
+        if source_intent == IntentType.DURATION_ADJUSTMENT.value:
+            return DecisionArchetype.WHAT_IF.value
+        if source_intent == IntentType.TIME_SHIFT.value:
+            return DecisionArchetype.WHAT_IF.value
         return TIMING_ARCHETYPE_MAP.get(timing_mode, DecisionArchetype.NOW_CHECK.value)
 
     @staticmethod

@@ -63,7 +63,7 @@ class InteractionService:
         lowered = message.lower()
         intent = self._detect_intent(lowered)
         activity, activity_profile = self._detect_activity(lowered)
-        duration = self._detect_duration(lowered)
+        duration, reference_duration = self._detect_duration_fields(lowered, intent)
         time_horizon, time_window, timing_mode, requested_time_hint = self._detect_timing(lowered, intent)
         intensity = self._detect_intensity(lowered, activity_profile)
         comparison_target = self._detect_comparison_target(lowered, intent)
@@ -85,6 +85,7 @@ class InteractionService:
             "activity_profile": activity_profile.model_dump(mode="json") if activity_profile is not None else None,
             "intensity": intensity,
             "duration_minutes": duration,
+            "reference_duration_minutes": reference_duration,
             "time_context": timing_mode,
             "time_horizon": time_horizon,
             "time_window": time_window,
@@ -102,7 +103,7 @@ class InteractionService:
 
     @staticmethod
     def _detect_intent(message: str) -> IntentType:
-        if any(token in message for token in ("best time", "best window", "least risky time")):
+        if any(token in message for token in ("best time", "best window", "least risky time", "good time to", "when is a good time", "when should i")):
             return IntentType.BEST_TIME_TODAY
         if any(token in message for token in ("better than now", "go now or wait", "morning or afternoon", "before or after")):
             return IntentType.COMPARE_TIMES
@@ -126,19 +127,40 @@ class InteractionService:
         return self.activity_normalizer.normalize(message)
 
     @staticmethod
-    def _detect_duration(message: str) -> int | None:
-        match = re.search(r"(\d{1,3})\s*(minutes|minute|mins|min|hours|hour|hrs|hr)\b", message)
-        if match:
+    def _detect_duration_fields(message: str, intent: IntentType) -> tuple[int | None, int | None]:
+        durations = InteractionService._extract_duration_candidates(message)
+        if intent == IntentType.DURATION_ADJUSTMENT:
+            scenario_duration = durations[0] if durations else None
+            reference_duration = durations[1] if len(durations) > 1 else None
+            return scenario_duration, reference_duration
+        return (durations[0], None) if durations else (None, None)
+
+    @staticmethod
+    def _extract_duration_candidates(message: str) -> list[int]:
+        durations: list[int] = []
+        for match in re.finditer(r"(\d{1,3})\s*(minutes|minute|mins|min|hours|hour|hrs|hr)\b", message):
             value = int(match.group(1))
             unit = match.group(2)
-            return value * 60 if unit.startswith(("hour", "hr")) else value
-        if re.search(r"\b(\d{1,2})k\+\b", message):
-            return 75
-        if "quick" in message or "brief" in message:
-            return 15
-        if "afternoon" in message or "half a day" in message:
-            return 180
-        return None
+            durations.append(value * 60 if unit.startswith(("hour", "hr")) else value)
+
+        article_patterns = [
+            (r"\bhalf\s+an?\s+hour\b", 30),
+            (r"\bone\s+hour\b", 60),
+            (r"\ban?\s+hour\b", 60),
+            (r"\bhalf\s+day\b", 180),
+        ]
+        for pattern, minutes in article_patterns:
+            if re.search(pattern, message):
+                durations.append(minutes)
+
+        if not durations:
+            if re.search(r"\b(\d{1,2})k\+\b", message):
+                durations.append(75)
+            elif "quick" in message or "brief" in message:
+                durations.append(15)
+            elif "afternoon" in message or "half a day" in message:
+                durations.append(180)
+        return durations
 
     @staticmethod
     def _detect_timing(
