@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 from core.modes.common import ModeEvaluationHelper
@@ -85,18 +84,9 @@ class WhatIfEngine:
         baseline_input["request"]["intent"]["requested_time"] = "now"
         baseline_result = self.helper.evaluate_single(baseline_input)
 
-        selected_hour = self._select_later_hour(decision_input)
-        if not selected_hour:
+        selected_hour, scenario_result = self._evaluate_best_timing_candidate(decision_input)
+        if not selected_hour or not scenario_result:
             return self._fallback_timing_to_baseline(baseline_result)
-
-        scenario_input = self.helper.build_weather_variant(
-            decision_input=decision_input,
-            selected_hour=selected_hour,
-            selection_mode="what_if_window",
-            confidence_penalty=0.12,
-            decision_archetype="NOW_CHECK",
-        )
-        scenario_result = self.helper.evaluate_single(scenario_input)
         improvement = scenario_result["decision"]["score"] < baseline_result["decision"]["score"] - 0.03
         display_time = self.helper.display_time(selected_hour.get("time"))
         activity = scenario_result["request"]["intent"]["activity"].replace("_", " ")
@@ -136,8 +126,8 @@ class WhatIfEngine:
                 "scenario": self._candidate_from_result(
                     label="scenario",
                     result=scenario_result,
-                    basis="later_weather_window",
-                    duration_min=scenario_input["request"]["intent"]["duration_min"],
+                    basis="later_scored_window",
+                    duration_min=decision_input["request"]["intent"]["duration_min"],
                     time=selected_hour.get("time"),
                     display_time=display_time,
                 ),
@@ -167,29 +157,21 @@ class WhatIfEngine:
         intent["duration_band"] = self._duration_band(int(baseline_duration))
         return baseline_input, assumption
 
-    def _select_later_hour(self, decision_input: dict[str, Any]) -> dict[str, Any] | None:
-        environment_state = decision_input["environment_state"]
-        time_context = environment_state.get("time_context") or {}
-        current_timestamp = time_context.get("snapshot_timestamp_utc")
-        forecast_hours = environment_state.get("forecast_hours") or []
-        requested_window = decision_input["request"]["intent"].get("time_window")
-        if not current_timestamp:
-            return None
-        current_dt = datetime.fromisoformat(current_timestamp.replace("Z", "+00:00"))
-        same_day: list[dict[str, Any]] = []
-        for hour in forecast_hours:
-            timestamp = hour.get("time")
-            if not timestamp:
-                continue
-            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            if parsed.date() != current_dt.date() or parsed <= current_dt:
-                continue
-            if requested_window and requested_window != "unspecified" and not self.helper.matches_window(parsed.hour, requested_window):
-                continue
-            same_day.append(hour)
-        if not same_day:
-            return None
-        return min(same_day, key=lambda item: (item.get("temperature_c") is None, item.get("temperature_c", 999), item.get("time")))
+    def _evaluate_best_timing_candidate(
+        self,
+        decision_input: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        candidates = self.helper.collect_same_day_candidates(
+            decision_input=decision_input,
+            requested_window=decision_input["request"]["intent"].get("time_window"),
+        )
+        evaluated = self.helper.evaluate_weather_candidates(
+            decision_input=decision_input,
+            selection_mode="what_if_window",
+            confidence_penalty=0.12,
+            candidates=candidates,
+        )
+        return self.helper.select_best_evaluated_candidate(evaluated)
 
     def _fallback_timing_to_baseline(self, baseline_result: dict[str, Any]) -> dict[str, Any]:
         baseline_result["recommendation"]["message"] = (

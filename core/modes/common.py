@@ -52,6 +52,65 @@ class ModeEvaluationHelper:
         alternative_input["environment_state"]["data_quality"] = quality
         return alternative_input
 
+    def collect_same_day_candidates(
+        self,
+        *,
+        decision_input: dict[str, Any],
+        requested_window: str | None = None,
+    ) -> list[dict[str, Any]]:
+        environment_state = decision_input["environment_state"]
+        time_context = environment_state.get("time_context") or {}
+        current_timestamp = time_context.get("snapshot_timestamp_utc")
+        forecast_hours = environment_state.get("forecast_hours") or []
+        if not current_timestamp:
+            return []
+
+        current_dt = datetime.fromisoformat(current_timestamp.replace("Z", "+00:00"))
+        candidates: list[dict[str, Any]] = []
+        for hour in forecast_hours:
+            timestamp = hour.get("time")
+            if not timestamp:
+                continue
+            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            if parsed.date() != current_dt.date() or parsed <= current_dt:
+                continue
+            if requested_window and requested_window != "unspecified" and not self.matches_window(parsed.hour, requested_window):
+                continue
+            candidates.append(hour)
+        return candidates
+
+    def evaluate_weather_candidates(
+        self,
+        *,
+        decision_input: dict[str, Any],
+        candidates: list[dict[str, Any]],
+        selection_mode: str,
+        confidence_penalty: float,
+    ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+        evaluated: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        for candidate in candidates:
+            variant_input = self.build_weather_variant(
+                decision_input=decision_input,
+                selected_hour=candidate,
+                selection_mode=selection_mode,
+                confidence_penalty=confidence_penalty,
+                decision_archetype="NOW_CHECK",
+            )
+            result = self.evaluate_single(variant_input)
+            evaluated.append((candidate, result))
+        return evaluated
+
+    @staticmethod
+    def select_best_evaluated_candidate(
+        evaluated: list[tuple[dict[str, Any], dict[str, Any]]],
+    ) -> tuple[dict[str, Any], dict[str, Any]] | tuple[None, None]:
+        if not evaluated:
+            return None, None
+        return min(
+            evaluated,
+            key=lambda item: (item[1]["decision"]["score"], -item[1]["decision"]["confidence"], item[0].get("time") or ""),
+        )
+
     @staticmethod
     def matches_window(hour: int, requested_window: str) -> bool:
         if requested_window == "early_morning":

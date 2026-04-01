@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 from core.modes.common import ModeEvaluationHelper
@@ -13,11 +12,9 @@ class CompareNowLaterEngine:
 
     def evaluate(self, decision_input: dict[str, Any]) -> dict[str, Any]:
         current_result = self.helper.evaluate_single(decision_input)
-        alternative_input, selected_hour = self._build_alternative_input(decision_input)
-        if not alternative_input or not selected_hour:
+        selected_hour, later_result = self._evaluate_best_later_candidate(decision_input)
+        if not selected_hour or not later_result:
             return self._fallback_to_current(current_result)
-
-        later_result = self.helper.evaluate_single(alternative_input)
         enriched = self._merge_compare_result(
             current_result=current_result,
             later_result=later_result,
@@ -25,28 +22,21 @@ class CompareNowLaterEngine:
         )
         return enriched
 
-    def _build_alternative_input(self, decision_input: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-        environment_state = decision_input["environment_state"]
-        time_context = environment_state.get("time_context") or {}
-        current_timestamp = time_context.get("snapshot_timestamp_utc")
-        forecast_hours = environment_state.get("forecast_hours") or []
-        intent = decision_input["request"]["intent"]
-        selected_hour = self._select_later_hour(
-            current_timestamp=current_timestamp,
-            forecast_hours=forecast_hours,
-            requested_window=intent.get("time_window"),
-        )
-        if not selected_hour:
-            return None, None
-
-        alternative_input = self.helper.build_weather_variant(
+    def _evaluate_best_later_candidate(
+        self,
+        decision_input: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        candidates = self.helper.collect_same_day_candidates(
             decision_input=decision_input,
-            selected_hour=selected_hour,
+            requested_window=decision_input["request"]["intent"].get("time_window"),
+        )
+        evaluated = self.helper.evaluate_weather_candidates(
+            decision_input=decision_input,
             selection_mode="compare_window",
             confidence_penalty=0.12,
-            decision_archetype="NOW_CHECK",
+            candidates=candidates,
         )
-        return alternative_input, selected_hour
+        return self.helper.select_best_evaluated_candidate(evaluated)
 
     def _merge_compare_result(
         self,
@@ -127,31 +117,6 @@ class CompareNowLaterEngine:
             "A later same-day weather comparison window was not available."
         ] + current_result["explanation"]["reasons"]
         return current_result
-
-    def _select_later_hour(
-        self,
-        *,
-        current_timestamp: str | None,
-        forecast_hours: list[dict[str, Any]],
-        requested_window: str | None,
-    ) -> dict[str, Any] | None:
-        if not current_timestamp:
-            return None
-        current_dt = datetime.fromisoformat(current_timestamp.replace("Z", "+00:00"))
-        same_day: list[dict[str, Any]] = []
-        for hour in forecast_hours:
-            timestamp = hour.get("time")
-            if not timestamp:
-                continue
-            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            if parsed.date() != current_dt.date() or parsed <= current_dt:
-                continue
-            if requested_window and requested_window != "unspecified" and not self.helper.matches_window(parsed.hour, requested_window):
-                continue
-            same_day.append(hour)
-        if not same_day:
-            return None
-        return min(same_day, key=lambda item: (item.get("temperature_c") is None, item.get("temperature_c", 999), item.get("time")))
 
     @staticmethod
     def _display_time(timestamp: str | None) -> str | None:

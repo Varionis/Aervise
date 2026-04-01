@@ -23,6 +23,18 @@ class IntentParserTests(unittest.TestCase):
         self.assertEqual(result["activity_profile"]["exertion_level"], "high")
         self.assertEqual(result["time_context"], "best_time_today")
 
+    def test_when_is_a_good_time_maps_to_best_time_today(self) -> None:
+        result = self.service.preview(
+            {
+                "message": "When is a good time to go for a run?",
+                "location": {"lat": 43.6532, "lon": -79.3832},
+            }
+        )["intent_recognition"]
+
+        self.assertEqual(result["intent"], "best_time_today")
+        self.assertEqual(result["activity"], "running")
+        self.assertEqual(result["time_context"], "best_time_today")
+
     def test_compare_times_intent(self) -> None:
         result = self.service.preview(
             {
@@ -45,6 +57,7 @@ class IntentParserTests(unittest.TestCase):
         self.assertEqual(result["intent"], "duration_adjustment")
         self.assertEqual(result["adjustment_type"], "duration")
         self.assertEqual(result["duration_minutes"], 20)
+        self.assertEqual(result["reference_duration_minutes"], 60)
 
     def test_route_mode_choice_intent(self) -> None:
         result = self.service.preview(

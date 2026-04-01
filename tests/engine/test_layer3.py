@@ -114,6 +114,17 @@ class DecisionLayer3PolicyTests(unittest.TestCase):
         self.assertFalse(layer3["recommendation"]["allowed"])
         self.assertIn("outside the supported range", layer3["recommendation"]["message"].lower())
 
+    def test_stale_saved_snapshot_blocks_same_day_planning(self) -> None:
+        decision_input = self._decision_input(self.snapshot, "What's the best time to go for a run today?")
+        decision_input["environment_state"]["time_context"]["data_origin"] = "saved_snapshot_fallback"
+        decision_input["environment_state"]["time_context"]["snapshot_age_minutes"] = 500.0
+        layer2 = self.layer2_evaluator.evaluate(self.feasibility_evaluator.evaluate(decision_input))
+        layer3 = self.layer3_policy.evaluate(layer2)
+
+        self.assertEqual(layer3["decision"]["label"], "insufficient_confidence")
+        self.assertTrue(layer3["policy_trace"]["hard_constraints_triggered"])
+        self.assertIn("fallback snapshot", layer3["reasoning"][0].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

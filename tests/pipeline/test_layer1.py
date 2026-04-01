@@ -74,6 +74,24 @@ class DecisionPayloadBuilderTests(unittest.TestCase):
         self.assertEqual(payload["request"]["intent"]["decision_archetype"], "BEST_TIME_TODAY")
         self.assertEqual(payload["request"]["intent"]["duration_min"], 45)
 
+    def test_builds_what_if_duration_payload_with_reference_duration(self) -> None:
+        interaction = self.interaction_service.preview(
+            {
+                "message": "Can I still go for a run if I reduce my time to 20 minutes instead of an hour?",
+                "location": {"lat": 43.6532, "lon": -79.3832},
+            }
+        )
+        payload = self.builder.build(
+            entry_point=interaction["entry_point"],
+            intent_recognition=interaction["intent_recognition"],
+            environment_state=self.environment_state,
+        )
+
+        self.assertEqual(payload["request"]["intent"]["source_intent"], "duration_adjustment")
+        self.assertEqual(payload["request"]["intent"]["decision_archetype"], "WHAT_IF")
+        self.assertEqual(payload["request"]["intent"]["duration_min"], 20)
+        self.assertEqual(payload["request"]["intent"]["reference_duration_min"], 60)
+
     def test_activity_check_without_duration_uses_activity_default(self) -> None:
         interaction = self.interaction_service.preview(
             {

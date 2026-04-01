@@ -116,6 +116,33 @@ class WeatherWindowSelectorTests(unittest.TestCase):
         self.assertEqual(state["time_context"]["weather_selection_mode"], "forecast_window")
         self.assertLess(state["data_quality"]["overall_confidence"], 0.83)
 
+    def test_snapshot_to_environment_state_records_data_origin_and_snapshot_age(self) -> None:
+        now = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+        snapshot = {
+            "timestamp_utc": now.isoformat(),
+            "environment": {
+                "air": {"pm25": {"value": 12.0, "unit": "ug/m3", "measured_at_utc": now.isoformat(), "source": "openaq"}},
+                "weather": {
+                    "temperature_c": 8.0,
+                    "humidity": 50,
+                    "wind_speed": 2.0,
+                    "measured_at_utc": now.isoformat(),
+                    "source": "openmeteo",
+                },
+            },
+            "forecast": [],
+            "meta": {
+                "location": {"lat": 43.6532, "lon": -79.3832},
+                "data_confidence": 0.83,
+                "sources": {"air": {"data_confidence": 0.71}, "weather": {"data_confidence": 0.95}},
+            },
+        }
+
+        state = EnrichmentService.snapshot_to_environment_state(snapshot, data_origin="saved_snapshot_fallback")
+
+        self.assertEqual(state["time_context"]["data_origin"], "saved_snapshot_fallback")
+        self.assertIsNotNone(state["time_context"]["snapshot_age_minutes"])
+
 
 if __name__ == "__main__":
     unittest.main()
