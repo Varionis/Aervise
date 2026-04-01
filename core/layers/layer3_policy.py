@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from config import Settings, get_settings
 
 
 WEIGHTS_BY_ARCHETYPE = {
@@ -45,12 +47,37 @@ WEIGHTS_BY_ARCHETYPE = {
 
 @dataclass
 class DecisionLayer3Policy:
+    settings: Settings = field(default_factory=get_settings)
+
     def evaluate(self, layer2_payload: dict[str, Any]) -> dict[str, Any]:
         intent = layer2_payload["request"]["intent"]
         user_context = layer2_payload["request"]["user_context"]
         environment_state = layer2_payload["environment_state"]
         risk_factors = layer2_payload["risk_factors"]
         request_feasibility = layer2_payload["request_feasibility"]
+
+        stale_snapshot_block = self._stale_fallback_snapshot_constraint(intent=intent, environment_state=environment_state)
+        if stale_snapshot_block:
+            decision = {"label": "insufficient_confidence", "score": 1.0, "confidence": 0.25}
+            payload = {
+                **layer2_payload,
+                "decision": decision,
+                "recommendation": self._recommendation_from_decision(
+                    intent=intent,
+                    decision=decision["label"],
+                    hard_constraints=stale_snapshot_block,
+                ),
+                "factor_breakdown": self._factor_breakdown(risk_factors),
+                "reasoning": [item["reason"] for item in stale_snapshot_block],
+                "modifications": [],
+                "assumptions": self._assumptions(layer2_payload),
+                "policy_trace": {
+                    "hard_constraints_triggered": stale_snapshot_block,
+                    "score_components": {},
+                    "overrides_applied": [],
+                },
+            }
+            return self._apply_intent_behavior(payload)
 
         future_horizon_block = self._unsupported_future_horizon(intent=intent, environment_state=environment_state)
         if future_horizon_block:
@@ -232,6 +259,31 @@ class DecisionLayer3Policy:
             {
                 "code": "FUTURE_HORIZON_NOT_SUPPORTED",
                 "reason": "The requested future weather window could not be selected from the available forecast data.",
+            }
+        ]
+
+    def _stale_fallback_snapshot_constraint(self, *, intent: dict[str, Any], environment_state: dict[str, Any]) -> list[dict[str, Any]]:
+        time_context = environment_state.get("time_context") or {}
+        if time_context.get("data_origin") != "saved_snapshot_fallback":
+            return []
+        age_minutes = time_context.get("snapshot_age_minutes")
+        if age_minutes is None or age_minutes <= self.settings.max_fallback_snapshot_age_minutes:
+            return []
+
+        source_intent = intent.get("source_intent")
+        time_horizon = intent.get("time_horizon")
+        same_day_or_unspecified = time_horizon in {"now", "later_today", "unspecified"}
+        planning_or_current = source_intent in {"activity_check", "best_time_today", "compare_times", "time_shift", "duration_adjustment"}
+        if not (same_day_or_unspecified and planning_or_current):
+            return []
+
+        return [
+            {
+                "code": "STALE_FALLBACK_SNAPSHOT",
+                "reason": (
+                    f"The only available saved fallback snapshot is {round(age_minutes)} minutes old, so this same-day recommendation "
+                    "would be misleading."
+                ),
             }
         ]
 
